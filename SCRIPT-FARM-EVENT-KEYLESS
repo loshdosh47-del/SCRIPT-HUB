@@ -1,0 +1,190 @@
+
+local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local UserInputService = game:GetService("UserInputService")
+
+local player = Players.LocalPlayer
+local activo = false
+
+local Event = ReplicatedStorage
+	:WaitForChild("Packages")
+	:WaitForChild("Networking")
+	:WaitForChild("RE/Events/CollectEventSpawnable")
+
+local gui = Instance.new("ScreenGui")
+gui.Name = "CatalinaGui"
+gui.ResetOnSpawn = false
+gui.Parent = player:WaitForChild("PlayerGui")
+
+local ventana = Instance.new("Frame")
+ventana.Size = UDim2.fromOffset(260, 175)
+ventana.Position = UDim2.new(0.5, -130, 0.5, -87)
+ventana.BackgroundColor3 = Color3.fromRGB(255, 105, 180)
+ventana.BackgroundTransparency = 0.15
+ventana.BorderSizePixel = 0
+ventana.Active = true
+ventana.Parent = gui
+
+local esquina = Instance.new("UICorner")
+esquina.CornerRadius = UDim.new(0, 14)
+esquina.Parent = ventana
+
+local titulo = Instance.new("TextLabel")
+titulo.Size = UDim2.new(1, 0, 0, 48)
+titulo.BackgroundTransparency = 1
+titulo.Text = "♥ Catalina te amo ♥"
+titulo.TextColor3 = Color3.new(1, 1, 1)
+titulo.TextScaled = true
+titulo.Font = Enum.Font.GothamBold
+titulo.Active = true
+titulo.Parent = ventana
+
+local boton = Instance.new("TextButton")
+boton.Size = UDim2.fromOffset(190, 48)
+boton.Position = UDim2.new(0.5, -95, 0, 62)
+boton.BackgroundColor3 = Color3.fromRGB(255, 180, 220)
+boton.BackgroundTransparency = 0.15
+boton.Text = "AUTO FARM: OFF"
+boton.TextColor3 = Color3.new(1, 1, 1)
+boton.TextScaled = true
+boton.Font = Enum.Font.GothamBold
+boton.Parent = ventana
+
+local esquinaBoton = Instance.new("UICorner")
+esquinaBoton.CornerRadius = UDim.new(0, 10)
+esquinaBoton.Parent = boton
+
+local creditos = Instance.new("TextLabel")
+creditos.Size = UDim2.new(1, 0, 0, 20)
+creditos.Position = UDim2.new(0, 0, 0, 125)
+creditos.BackgroundTransparency = 1
+creditos.Text = "by creador DX9"
+creditos.TextColor3 = Color3.new(1, 1, 1)
+creditos.TextSize = 12
+creditos.Font = Enum.Font.Gotham
+creditos.Parent = ventana
+
+-- Detectar calabazas
+local function esCalabaza(obj)
+	local nombre = string.lower(obj.Name)
+	return string.find(nombre, "pumpkin")
+		or string.find(nombre, "calabaza")
+end
+
+local datosCalabazas = {}
+
+local function obtenerParte(obj)
+	if obj:IsA("BasePart") then
+		return obj
+	end
+	return obj:FindFirstChildWhichIsA("BasePart", true)
+end
+
+local function ocultarCalabaza(obj)
+	if not esCalabaza(obj) then return end
+
+	local parte = obtenerParte(obj)
+	if not parte then return end
+
+	if not datosCalabazas[obj] then
+		datosCalabazas[obj] = {
+			CFrame = parte.CFrame,
+			Size = parte.Size
+		}
+	end
+
+	parte.Size = datosCalabazas[obj].Size * 0.1
+	parte.CFrame = datosCalabazas[obj].CFrame
+		+ Vector3.new(0, -500, 0)
+end
+
+local function mostrarCalabaza(obj)
+	if not esCalabaza(obj) then return end
+
+	local parte = obtenerParte(obj)
+	local datos = datosCalabazas[obj]
+
+	if not parte or not datos then return end
+
+	parte.CFrame = datos.CFrame
+	parte.Size = datos.Size
+end
+
+local function actualizarCalabazas()
+	for _, obj in ipairs(workspace:GetDescendants()) do
+		if esCalabaza(obj) then
+			if activo then
+				ocultarCalabaza(obj)
+			else
+				mostrarCalabaza(obj)
+			end
+		end
+	end
+end
+
+workspace.DescendantAdded:Connect(function(obj)
+	if activo and esCalabaza(obj) then
+		task.wait()
+		ocultarCalabaza(obj)
+	end
+end)
+
+-- Botón Auto Farm
+boton.Activated:Connect(function()
+	activo = not activo
+	boton.Text = activo and "AUTO FARM: ON" or "AUTO FARM: OFF"
+	actualizarCalabazas()
+end)
+
+-- Movimiento de ventana: PC y celular
+local arrastrando = false
+local posicionInicial
+local entradaInicial
+local toqueActivo
+
+titulo.InputBegan:Connect(function(input)
+	if input.UserInputType == Enum.UserInputType.MouseButton1
+		or input.UserInputType == Enum.UserInputType.Touch then
+
+		arrastrando = true
+		toqueActivo = input
+		entradaInicial = input.Position
+		posicionInicial = ventana.Position
+	end
+end)
+
+UserInputService.InputChanged:Connect(function(input)
+	if not arrastrando then return end
+
+	if input == toqueActivo
+		or input.UserInputType == Enum.UserInputType.MouseMovement then
+
+		local delta = input.Position - entradaInicial
+
+		ventana.Position = UDim2.new(
+			posicionInicial.X.Scale,
+			posicionInicial.X.Offset + delta.X,
+			posicionInicial.Y.Scale,
+			posicionInicial.Y.Offset + delta.Y
+		)
+	end
+end)
+
+UserInputService.InputEnded:Connect(function(input)
+	if input == toqueActivo
+		or input.UserInputType == Enum.UserInputType.MouseButton1 then
+
+		arrastrando = false
+		toqueActivo = nil
+	end
+end)
+
+-- Evento periódico
+task.spawn(function()
+	while true do
+		if activo then
+			Event:FireServer()
+		end
+		task.wait(1)
+	end
+end)
